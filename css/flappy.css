@@ -1,0 +1,77 @@
+.content [wm-flappy] {
+	height: 49vmin;
+	width: 98vmin;
+	position: relative;
+	background-color: lightskyblue;
+	border: solid 3px cornflowerblue;
+	overflow: hidden;
+}
+
+@font-face {
+	font-family: PixelFont;
+	src: url('../fonts/Pixel.ttf');
+}
+
+.score {
+	position: absolute;
+	right: 2%;
+	font: 6vmin PixelFont;
+	z-index: 1;
+}
+
+.obstacle {
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-start;
+	height: 100%;
+	width: 10%; /* initial value... changed by script */
+
+	position: absolute;
+	left: 5%; /* initial value... changed by script */
+	bottom: 0%;
+}
+
+.obstacle .opening {
+	height: 20%; /* initial value... changed by script */
+}
+
+.obstacle .pipe {
+	display: flex;
+	justify-content: flex-start;
+	align-items: center;
+}
+
+.obstacle .pipe.bottom {
+	flex-direction: column;
+	height: 10%; /* initial value... changed by script */
+}
+
+.obstacle .pipe.top {
+	flex-direction: column-reverse;
+	flex-grow: 1;
+}
+
+.obstacle .pipe :first-child {
+	border: solid 2px #444;
+	background: linear-gradient(to right, #60792c, yellowgreen);
+	width: 100%;
+	height: 2vmin;
+	box-sizing: border-box;
+}
+
+.obstacle .pipe :last-child {
+	background: linear-gradient(to right, #60792c, yellowgreen);
+	border-left: solid 2px #444;
+	border-right: solid 2px #444;
+	width: 90%;
+	flex-grow: 1;
+	box-sizing: border-box;
+}
+
+.bird {
+	position: absolute;
+	bottom: 50%; /* initial value... changed by script */
+	left: 10%; /* initial value... changed by script */
+	height: 5%;
+	z-index: 1;
+}
