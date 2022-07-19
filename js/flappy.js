@@ -175,13 +175,13 @@ for (i = 0; i < OBSTACLES_MAX_NUMBER_OF; i++) {
 	// obstacle[i].position = OBSTACLES_INITIAL_POSITION
 }
 
-const BIRD_FIXED_HORIZONTAL_POSITION = 85 // in % of the stage size
+const BIRD_FIXED_HORIZONTAL_POSITION = 90 // in % of the stage size
 bird.horizontalPosition = BIRD_FIXED_HORIZONTAL_POSITION
 
 const GAME_FRAME_INTERVAL = 30 // in ms
 const GAME_OBSTACLE_POSITION_INCREMENT = 0.3 // in % of the stage size
-const GAME_BIRD_HPOSITION_INCREMENT = 0.8 // in % of the stage size
-const GAME_BIRD_HPOSITION_DECREMENT = 0.5 // in % of the stage size
+const GAME_BIRD_VPOSITION_INCREMENT = 0.8 // in % of the stage size
+const GAME_BIRD_VPOSITION_DECREMENT = 0.5 // in % of the stage size
 
 let userInputMouseClicked = false
 let userInputKeyPressed = false
@@ -229,17 +229,21 @@ window.setInterval(() => {
 		obstacle[i - 1] = swapTemp
 	}
 
-	const birdUpperEndOfCourse = 100 // 100%
-	const birdLowerEndOfCourse = 0 - bird.height
+	const birdUpperEndOfCourse = 100 - bird.height // i.e. 100% - height
+	const birdLowerEndOfCourse = 0
 
 	const inputBirdIsFlying = userInputKeyPressed || userInputMouseClicked
 	if (inputBirdIsFlying) {
 		if (bird.verticalPosition < birdUpperEndOfCourse) {
-			bird.verticalPosition += GAME_BIRD_HPOSITION_INCREMENT
+			bird.verticalPosition += GAME_BIRD_VPOSITION_INCREMENT
+		} else {
+			bird.verticalPosition = birdUpperEndOfCourse
 		}
 	}	else {
 		if (bird.verticalPosition > birdLowerEndOfCourse) {
-			bird.verticalPosition -= GAME_BIRD_HPOSITION_DECREMENT
+			bird.verticalPosition -= GAME_BIRD_VPOSITION_DECREMENT
+		} else {
+			bird.verticalPosition = birdLowerEndOfCourse
 		}
 	}
 
