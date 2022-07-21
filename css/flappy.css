@@ -27,10 +27,11 @@
 	width: 10%; /* initial value... changed by script */
 
 	position: absolute;
-	right: 5%; /* initial value... changed by script */
+	left: 5%; /* initial value... changed by script */
+	bottom: 0%;
 }
 
-.obstacle .free-path {
+.obstacle .opening {
 	height: 20%; /* initial value... changed by script */
 }
 
@@ -70,7 +71,7 @@
 .bird {
 	position: absolute;
 	bottom: 50%; /* initial value... changed by script */
-	right: 80%; /* initial value... changed by script */
+	left: 10%; /* initial value... changed by script */
 	height: 5%;
 	z-index: 1;
 }

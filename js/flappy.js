@@ -21,8 +21,78 @@
 	return propertyValue
 }
 
+function Rectangle(originX = 0, originY = 0, width = 0, height = 0) {
+	
+	function makePoint(x = 0, y = 0) {
+		return {x, y}
+	}
+
+	this._origin = makePoint(originX, originY)
+	this._width = width
+	this._height = height
+
+	Object.defineProperty(this, 'originX', {
+		get() {
+			return this._origin.x
+		},
+		set(newValue) {
+			this._origin.x = newValue
+		}
+	})
+	Object.defineProperty(this, 'originY', {
+		get() {
+			return this._origin.y
+		},
+		set(newValue) {
+			this._origin.y = newValue
+		}
+	})
+	Object.defineProperty(this, 'width', {
+		get() {
+			return  this._width
+		},
+		set(newValue) {
+			this._width = newValue
+		}
+	})
+	Object.defineProperty(this, 'height', {
+		get() {
+			return this._height
+		},
+		set(newValue) {
+			this._height = newValue
+		}
+	})
+
+	this.isOverlapping = function(rectangle) {
+		const points = [
+			// Lower left corner
+			makePoint(originX,         originY),
+			// Upper left corner
+			makePoint(originX,         originY + height),
+			// Lower right corner
+			makePoint(originX + width, originY),
+			// Upper right corner
+			makePoint(originX + width, originY + height)
+		]
+
+		const startX = rectangle._origin.x
+		const endX   = rectangle._origin.x + rectangle._width
+		const startY = rectangle._origin.y
+		const endY   = rectangle._origin.y + rectangle._height
+
+		points.forEach(point => {
+			if ( ((point.x >= startX) && (point.x <= endX)) &&
+			     ((point.y >= startY) && (point.y <= endY)) )
+			{
+				return true
+			}
+		})
+	}
+}
+
 function Obstacle(parent) {
-	// Html structure construction
+	// HTML structure construction
 	const topPipe = document.createElement('div')
 	topPipe.classList.add('pipe')
 	topPipe.appendChild(document.createElement('div'))
@@ -33,65 +103,116 @@ function Obstacle(parent) {
 	topPipe.classList.add('top')
 	bottomPipe.classList.add('bottom')
 
-	const freePath = document.createElement('div')
-	freePath.classList.add('free-path')
+	const opening = document.createElement('div')
+	opening.classList.add('opening')
 
 	const obstacle = document.createElement('div')
 	obstacle.classList.add('obstacle')
 	obstacle.appendChild(topPipe)
-	obstacle.appendChild(freePath)
+	obstacle.appendChild(opening)
 	obstacle.appendChild(bottomPipe)
 
 	this._topPipeNode = topPipe
 	this._bottonPipeNode = bottomPipe
-	this._freePathNode = freePath
+	this._openingNode = opening
 	this._obstacleNode = obstacle
 
 	parent.appendChild(obstacle)
 
-	this._position = getCSSPropertyAsPercentage(this._obstacleNode, 'right')
-	this._width = getCSSPropertyAsPercentage(this._obstacleNode, 'width')
-	this._freePathSize = getCSSPropertyAsPercentage(this._freePathNode, 'height')
-	this._freePathPosition = getCSSPropertyAsPercentage(this._bottonPipeNode, 'height')
+	// overview of the constructed structure:
+	// +------------+ <---+                      100% verticalPosition + height
+	// |            |     |
+	// |  topPipe   |     |
+	// |            |     |
+	// +------------+     |  <-------+
+	// |            |     |          |
+	// |  opening   |  height    openingSize
+	// |            |     |          |
+	// +------------+     |  <-------+
+	// |            |     |          | 
+	// | bottomPipe |     |      openingPosition
+	// |            |     |          | 
+	// +------------+ <---+  <-------+             0% verticalPosition
+	// ^            ^
+	// |   width    |
+
+	const horizontalPosition = getCSSPropertyAsPercentage(this._obstacleNode, 'left')
+	const verticalPosition = 0
+	const width = getCSSPropertyAsPercentage(this._obstacleNode, 'width')
+	const height = 100
+	const openingSize = getCSSPropertyAsPercentage(this._openingNode, 'height')
+	const openingPosition = getCSSPropertyAsPercentage(this._bottonPipeNode, 'height')
+
+	this._bottomPipeRectangle = new Rectangle(
+		horizontalPosition, verticalPosition, width, openingPosition
+	)
+
+	const topPipeRectangleVerticalPosition = verticalPosition + openingPosition + openingSize
+	this._topPipeRectangle = new Rectangle(
+		horizontalPosition, topPipeRectangleVerticalPosition,
+		width, height - topPipeRectangleVerticalPosition
+	)
 
 	// JS properties to ease obstacle manipulation
 	Object.defineProperty(this, 'position', {
 		get() {
-			return this._position
+			return this._bottomPipeRectangle.originX
 		},
 		set(newValue) {
-			this._position = newValue
-			this._obstacleNode.style.right = `${newValue}%`
+			this._bottomPipeRectangle.originX = newValue
+			this._topPipeRectangle.originX = newValue
+			this._obstacleNode.style.left = `${newValue}%`
 		}
 	})
 
 	Object.defineProperty(this, 'width', {
 		get() {
-			return this._width
+			return this._bottomPipeRectangle.width
 		},
 		set(newValue) {
-			this._width = newValue
+			this._bottomPipeRectangle.width = newValue
+			this._topPipeRectangle.width = newValue
 			this._obstacleNode.style.width = `${newValue}%`
 		}
 	})
 
-	Object.defineProperty(this, 'freePathSize', {
+	Object.defineProperty(this, 'openingPosition', {
 		get() {
-			return this._freePathSize
+			return this._bottomPipeRectangle.height
 		},
 		set(newValue) {
-			this._freePathSize = newValue
-			this._freePathNode.style.height = `${newValue}%`
+			const openingSize = 
+				this._topPipeRectangle.originY - this._bottomPipeRectangle.height
+			const topPipeNewOriginY = newValue + openingSize
+			const obstacleHeight = 100
+
+			this._bottomPipeRectangle.height = newValue
+			this._topPipeRectangle.originY = topPipeNewOriginY
+			this._topPipeRectangle.height = obstacleHeight - topPipeNewOriginY
+
+			this._bottonPipeNode.style.height = `${newValue}%`
+			// top pipe style is ajusted automatically by CSS rules
 		}
 	})
 
-	Object.defineProperty(this, 'freePathPosition', {
+	Object.defineProperty(this, 'openingSize', {
 		get() {
-			return this._freePathPosition
+			return this._topPipeRectangle.originY - this._bottomPipeRectangle.height
 		},
 		set(newValue) {
-			this._freePathPosition = newValue
-			this._bottonPipeNode.style.height = `${newValue}%`
+			const topPipeNewOriginY = this._bottomPipeRectangle.height + newValue
+			const obstacleHeight = 100
+
+			this._topPipeRectangle.originY = topPipeNewOriginY
+			this._topPipeRectangle.height = obstacleHeight - topPipeNewOriginY
+
+			this._openingNode.style.height = `${newValue}%`
+		}
+	})
+
+	Object.defineProperty(this, 'rectangles', {
+		get() {
+			return [this._bottomPipeRectangle, this._topPipeRectangle]
 		}
 	})
 }
@@ -123,7 +244,7 @@ function Bird(parent) {
 	parent.appendChild(bird)
 
 	this._birdNode = bird
-	this._horizontalPosition = getCSSPropertyAsPercentage(this._birdNode, 'right')
+	this._horizontalPosition = getCSSPropertyAsPercentage(this._birdNode, 'left')
 	this._verticalPosition = getCSSPropertyAsPercentage(this._birdNode, 'bottom')
 	this._height = getCSSPropertyAsPercentage(this._birdNode, 'height')
 
@@ -139,7 +260,7 @@ function Bird(parent) {
 		},
 		set(newValue) {
 			this._horizontalPosition = newValue
-			this._birdNode.style.right = `${newValue}%`
+			this._birdNode.style.left = `${newValue}%`
 		}
 	})
 
@@ -175,11 +296,11 @@ for (i = 0; i < OBSTACLES_MAX_NUMBER_OF; i++) {
 	// obstacle[i].position = OBSTACLES_INITIAL_POSITION
 }
 
-const BIRD_FIXED_HORIZONTAL_POSITION = 90 // in % of the stage size
+const BIRD_FIXED_HORIZONTAL_POSITION = 10 // in % of the stage size
 bird.horizontalPosition = BIRD_FIXED_HORIZONTAL_POSITION
 
 const GAME_FRAME_INTERVAL = 30 // in ms
-const GAME_OBSTACLE_POSITION_INCREMENT = 0.3 // in % of the stage size
+const GAME_OBSTACLE_POSITION_DECREMENT = 0.3 // in % of the stage size
 const GAME_BIRD_VPOSITION_INCREMENT = 0.8 // in % of the stage size
 const GAME_BIRD_VPOSITION_DECREMENT = 0.5 // in % of the stage size
 
@@ -205,21 +326,21 @@ document.onkeyup = () => {
 
 bird.verticalPosition = 50
 
-const obstacleEndOfCourse = 100 // 100%
-const obstacleStartOfCourse = 0 - obstacle[0].width // 0% - width
+const obstacleStartOfCourse = 100 // 100%
+const obstacleEndOfCourse = 0 - obstacle[0].width // 0% - width
 
 obstacle.forEach(o => o.position = obstacleStartOfCourse)
 
 window.setInterval(() => {
 
-	obstacle[0].position += GAME_OBSTACLE_POSITION_INCREMENT
+	obstacle[0].position -= GAME_OBSTACLE_POSITION_DECREMENT
 	for (let i = 1; i < obstacle.length; i++) {
-		if ((obstacle[i - 1].position - obstacle[i].position) >= OBSTACLES_POSITION_OFFSET) {
-			obstacle[i].position += GAME_OBSTACLE_POSITION_INCREMENT
+		if ((obstacle[i].position - obstacle[i - 1].position) >= OBSTACLES_POSITION_OFFSET) {
+			obstacle[i].position -= GAME_OBSTACLE_POSITION_DECREMENT
 		}
 	}
 
-	if (obstacle[0].position >= obstacleEndOfCourse) {
+	if (obstacle[0].position <= obstacleEndOfCourse) {
 		obstacle[0].position = obstacleStartOfCourse
 		const swapTemp = obstacle[0]
 		let i
@@ -246,6 +367,8 @@ window.setInterval(() => {
 			bird.verticalPosition = birdLowerEndOfCourse
 		}
 	}
+
+
 
 }, GAME_FRAME_INTERVAL)
 
