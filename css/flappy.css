@@ -32,7 +32,7 @@
 }
 
 .obstacle .opening {
-	height: 20%; /* initial value... changed by script */
+	flex-grow: 1;
 }
 
 .obstacle .pipe {
@@ -48,7 +48,7 @@
 
 .obstacle .pipe.top {
 	flex-direction: column-reverse;
-	flex-grow: 1;
+	height: 10%; /* initial value... changed by script */
 }
 
 .obstacle .pipe :first-child {
@@ -73,5 +73,6 @@
 	bottom: 50%; /* initial value... changed by script */
 	left: 10%; /* initial value... changed by script */
 	height: 5%;
+	width: 4%;
 	z-index: 1;
 }
