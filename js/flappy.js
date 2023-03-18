@@ -1,13 +1,9 @@
 /**
- * Gets a CSS property of an element as percentage. The property value returned by getComputedStyle
- * must contain pixel value and the property must specified as (relative) value in percentage in
- * the css files/html head.
+ * Gets a CSS property of an element as percentage relative to its parent.
  * 
- * @param {*} element The HTML element to read the CSS property
+ * @param {HTMLElement} element The HTML element to read the CSS property
  * @param {string} property The CSS property to read.
- * @returns The CSS property as a percentage and as a number type. If the property is specified in
- * pixels in the CSS files, then end result will be just the value in pixels converted to number
- * type.
+ * @returns The CSS property as a percentage and as a number type.
  */
  function getCSSPropertyAsPercentage(element, parentElement, property) {
 	const elementPropertyValue = parseInt(window.getComputedStyle(element)[property])
@@ -15,6 +11,19 @@
 	return elementPropertyValue / parentPropertyValue * 100
 }
 
+/**
+ * Represents a polygon for the moving objects of the game. As the purpose is just learning,
+ * I'm keeping this simple by representing it just as a rectangle. Also, this data type
+ * could be remove and the rectangle returned by the DOM function getBoundingClientRect()
+ * could be used directly. I'm using this data type because the DOM function works with
+ * absolute pixel values and I'm working with relative percentage values. So, I want to
+ * store the values in percentage here to avoid conversions.
+ * 
+ * @param {number} originX The rectangle position on X axis
+ * @param {number} originY The rectangle position on Y axis
+ * @param {number} width   The width of the rectangle
+ * @param {number} height  The height of the rectangle
+ */
 function Rectangle(originX = 0, originY = 0, width = 0, height = 0) {
 
 	this.originX = originX
@@ -22,6 +31,14 @@ function Rectangle(originX = 0, originY = 0, width = 0, height = 0) {
 	this.width = width
 	this.height = height
 
+	/**
+	 * Checks if a rectangle is overlapping another rectangle. The algorithm is not perfect
+	 * and it only works if rectangle passed as parameter is bigger than "this rectangle".
+	 * For learning purposes this is OK.
+	 * 
+	 * @param {Rectangle} rectangle The rectangle to check the overlapping.
+	 * @returns true if the rectangles are overlapping.
+	 */
 	this.isOverlapping = function(rectangle) {
 
 		function makePoint(x = 0, y = 0) {
@@ -55,6 +72,11 @@ function Rectangle(originX = 0, originY = 0, width = 0, height = 0) {
 	}
 }
 
+/**
+ * Encapsulates the HTML elements for the obstacles (pipes) in the game.
+ * 
+ * @param {HTMLElement} parent The parent HTML element for the obstacle elements.
+ */
 function Obstacle(parent) {
 	// HTML structure construction
 	const topPipe = document.createElement('div')
@@ -77,14 +99,14 @@ function Obstacle(parent) {
 	obstacle.appendChild(bottomPipe)
 
 	this._topPipeNode = topPipe
-	this._bottonPipeNode = bottomPipe
+	this._bottomPipeNode = bottomPipe
 	this._openingNode = opening
 	this._obstacleNode = obstacle
 
 	parent.appendChild(obstacle)
 
 	// overview of the constructed structure:
-	// +------------+ <---+  <-------+           100% verticalPosition + height
+	// +------------+ <---+  <-------+           100% -> verticalPosition + height
 	// |            |     |          |
 	// |  topPipe   |     |      topPipeSize
 	// |            |     |          |
@@ -96,16 +118,20 @@ function Obstacle(parent) {
 	// |            |     |          |
 	// | bottomPipe |     |      bottomPipeSize
 	// |            |     |          |
-	// +------------+ <---+  <-------+             0% verticalPosition
+	// +------------+ <---+  <-------+             0% -> verticalPosition
 	// ^            ^
 	// |   width    |
 
 	this._horizontalPosition = getCSSPropertyAsPercentage(this._obstacleNode, parent, 'left')
 	this._width = getCSSPropertyAsPercentage(this._obstacleNode, parent, 'width')
-	this._bottonPipeSize = getCSSPropertyAsPercentage(this._bottonPipeNode, parent, 'height')
+	this._bottomPipeSize = getCSSPropertyAsPercentage(this._bottomPipeNode, parent, 'height')
 	this._topPipeSize = getCSSPropertyAsPercentage(this._topPipeNode, parent, 'height')
 
 	// JS properties to ease obstacle manipulation
+
+	/**
+	 * The horizontal position of the obstacle, in percentage units.
+	 */
 	Object.defineProperty(this, 'position', {
 		get() {
 			return this._horizontalPosition
@@ -117,7 +143,7 @@ function Obstacle(parent) {
 	})
 
 	/**
-	 * Width property.
+	 * The width of the obstacle, in percentage units.
 	 * 
 	 * @remark Although the current game implementation uses fixed width, I'm implementing the
 	 *    'set' method for the case of a future reuse.
@@ -132,16 +158,22 @@ function Obstacle(parent) {
 		}
 	})
 
+	/**
+	 * The size of the bottom pipe, in percentage units.
+	 */
 	Object.defineProperty(this, 'bottomPipeSize', {
 		get() {
-			return this._bottonPipeSize
+			return this._bottomPipeSize
 		},
 		set(newValue) {
-			this._bottonPipeSize = newValue
-			this._bottonPipeNode.style.height = `${newValue}%`
+			this._bottomPipeSize = newValue
+			this._bottomPipeNode.style.height = `${newValue}%`
 		}
 	})
 
+	/**
+	 * The size of the top pipe, in percentage units.
+	 */
 	Object.defineProperty(this, 'topPipeSize', {
 		get() {
 			return this._topPipeSize
@@ -152,6 +184,9 @@ function Obstacle(parent) {
 		}
 	})
 
+	/**
+	 * The rectangles/polygons representing the obstacle.
+	 */
 	Object.defineProperty(this, 'rectangles', {
 		get() {
 			const obstacleVerticalPosition = 0
@@ -161,7 +196,7 @@ function Obstacle(parent) {
 
 			const bottomPipeRectangle = new Rectangle(
 				this._horizontalPosition, bottomPipeVerticalPosition,
-				this._width, this._bottonPipeSize
+				this._width, this._bottomPipeSize
 			)
 
 			const topPipeRectangle = new Rectangle(
@@ -173,6 +208,11 @@ function Obstacle(parent) {
 	})
 }
 
+/**
+ * Encapsulates the HTML elements for the score in the game.
+ * 
+ * @param {HTMLElement} parent The parent HTML element for the score elements.
+ */
 function Score(parent) {
 	const score = document.createElement('div')
 	score.classList.add('score')
@@ -182,17 +222,30 @@ function Score(parent) {
 	this._scoreNode = score
 	this._points = 0
 
+	/**
+	 * Resets the score points.
+	 */
 	this.reset = function() {
 		this._points = 0
 		this._scoreNode.textContent = 0
 	}
 
+	/**
+	 * Adds points to the score.
+	 * 
+	 * @param {number} incrementValue The number of points to add.
+	 */
 	this.increment = function(incrementValue = 1) {
 		this._points += incrementValue
 		this._scoreNode.textContent = this._points
 	}
 }
 
+/**
+ * Encapsulates the HTML elements for the bird in the game.
+ * 
+ * @param {HTMLElement} parent The parent HTML element for the bird elements.
+ */
 function Bird(parent) {
 	const bird = document.createElement('img')
 	bird.src = 'imgs/passaro.png'
@@ -205,6 +258,9 @@ function Bird(parent) {
 	this.width = getCSSPropertyAsPercentage(this._birdNode, parent, 'width')
 	this.height = getCSSPropertyAsPercentage(this._birdNode, parent, 'height')
 
+	/**
+	 * The horizontal position of the bird, in percentage units.
+	 */
 	Object.defineProperty(this, 'horizontalPosition', {
 		get() {
 			return this._horizontalPosition
@@ -215,6 +271,9 @@ function Bird(parent) {
 		}
 	})
 
+	/**
+	 * The vertical position of the bird, in percentage units.
+	 */
 	Object.defineProperty(this, 'verticalPosition', {
 		get() {
 			return this._verticalPosition
@@ -225,6 +284,9 @@ function Bird(parent) {
 		}
 	})
 
+	/**
+	 * The rectangles/polygons representing the bird.
+	 */
 	Object.defineProperty(this, 'rectangles', {
 		get() {
 			return [
@@ -255,19 +317,66 @@ const OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT = 0
 const OBSTACLES_MAX_NUMBER_OF = Math.floor(
 	STAGE_HORIZONTAL_UPPER_LIMIT / OBSTACLES_POSITION_OFFSET) + 1
 
-const BIRD_INITIAL_VERTICAL_POSITION = 50
-const BIRD_FIXED_HORIZONTAL_POSITION = 10
-
 const GAME_FRAME_INTERVAL = 30 // in ms
 const GAME_OBSTACLE_POSITION_DECREMENT = 0.3
 const GAME_BIRD_VPOSITION_INCREMENT = 0.8
 const GAME_BIRD_VPOSITION_DECREMENT = 0.5
 
 
+function BirdAnimator(bird, birdPositionIncrement, birdPositionDecrement,
+	stageVerticalLowerLimit, stageVerticalUpperLimit) {
+
+	const BIRD_INITIAL_VERTICAL_POSITION = 50
+	const BIRD_FIXED_HORIZONTAL_POSITION = 10
+
+	this._bird = bird
+	this._bird.horizontalPosition = BIRD_FIXED_HORIZONTAL_POSITION
+	this._bird.verticalPosition = BIRD_INITIAL_VERTICAL_POSITION
+
+	this._userInputMouseClicked = false
+	this._userInputKeyPressed = false
+
+
+	this.onMouseDown = function() {
+		this._userInputMouseClicked = true
+	}
+	
+	this.onMouseUp = function() {
+		this._userInputMouseClicked = false
+	}
+	
+	this.onKeyDown = function() {
+		this._userInputKeyPressed = true
+	}
+	
+	this.onKeyUp = function() {
+		this._userInputKeyPressed = false
+	}
+
+	this.onFrameUpdate = function() {
+		// Bird position update
+		const birdUpperEndOfCourse = stageVerticalUpperLimit - this._bird.height // i.e. 100% - height
+		const birdLowerEndOfCourse = stageVerticalLowerLimit
+
+		const inputBirdIsFlying = this._userInputKeyPressed || this._userInputMouseClicked
+		if (inputBirdIsFlying) {
+			if (this._bird.verticalPosition < birdUpperEndOfCourse) {
+				this._bird.verticalPosition += birdPositionIncrement
+			} else {
+				this._bird.verticalPosition = birdUpperEndOfCourse
+			}
+		}	else {
+			if (this._bird.verticalPosition > birdLowerEndOfCourse) {
+				this._bird.verticalPosition -= birdPositionDecrement
+			} else {
+				this._bird.verticalPosition = birdLowerEndOfCourse
+			}
+		}
+	}
+}
+
 function GameApp(stage) {
 	const gameStage = stage
-	let userInputMouseClicked = false
-	let userInputKeyPressed = false
 	let obstacleScoredAlready = false
 
 	const score = new Score(gameStage)
@@ -281,6 +390,10 @@ function GameApp(stage) {
 	const GAME_BIRD_MAX_DOWN_TRAVEL_BETWEEN_OBSTACLES =
 		GAME_FRAMES_BETWEEN_OBSTACLES * GAME_BIRD_VPOSITION_DECREMENT
 	const GAME_BIRD_TRAVEL_GAP = bird.height * 2
+
+	this._birdAnimator = new BirdAnimator(bird,
+		GAME_BIRD_VPOSITION_INCREMENT, GAME_BIRD_VPOSITION_DECREMENT,
+		STAGE_VERTICAL_LOWER_LIMIT, STAGE_VERTICAL_UPPER_LIMIT)
 
 	function setRandomOpeningPosition(obstacle, openingSize, minPosition, maxPosition) {
 		obstacle.bottomPipeSize = Math.random() * (maxPosition - minPosition) + minPosition
@@ -352,20 +465,8 @@ function GameApp(stage) {
 		}
 	}
 
-	this.onMouseDown = function() {
-		userInputMouseClicked = true
-	}
-	
-	this.onMouseUp = function() {
-		userInputMouseClicked = false
-	}
-	
-	this.onKeyDown = function() {
-		userInputKeyPressed = true
-	}
-	
-	this.onKeyUp = function() {
-		userInputKeyPressed = false
+	this.getBirdAnimator = function() {
+		return this._birdAnimator
 	}
 
 	this.onFrameUpdate = function() {
@@ -394,23 +495,7 @@ function GameApp(stage) {
 		}
 
 		// Bird position update
-		const birdUpperEndOfCourse = STAGE_VERTICAL_UPPER_LIMIT - bird.height // i.e. 100% - height
-		const birdLowerEndOfCourse = STAGE_VERTICAL_LOWER_LIMIT
-
-		const inputBirdIsFlying = userInputKeyPressed || userInputMouseClicked
-		if (inputBirdIsFlying) {
-			if (bird.verticalPosition < birdUpperEndOfCourse) {
-				bird.verticalPosition += GAME_BIRD_VPOSITION_INCREMENT
-			} else {
-				bird.verticalPosition = birdUpperEndOfCourse
-			}
-		}	else {
-			if (bird.verticalPosition > birdLowerEndOfCourse) {
-				bird.verticalPosition -= GAME_BIRD_VPOSITION_DECREMENT
-			} else {
-				bird.verticalPosition = birdLowerEndOfCourse
-			}
-		}
+		this._birdAnimator.onFrameUpdate()
 
 		// Score update
 		let playerScoredOnePoint = didPlayerScoreOnePoint(bird, obstacles[0], obstacleScoredAlready)
@@ -437,17 +522,15 @@ function GameApp(stage) {
 		obstacles[i].position = OBSTACLES_INITIAL_POSITION
 		setRandomOpeningPositionForNextObstacle(obstacles[i], obstacles[i - 1])
 	}
-
-	bird.horizontalPosition = BIRD_FIXED_HORIZONTAL_POSITION
-	bird.verticalPosition = BIRD_INITIAL_VERTICAL_POSITION
 }
 
 const gameApp = new GameApp(gameStage)
 
-document.onmousedown = gameApp.onMouseDown
-document.onmouseup = gameApp.onMouseUp
-document.onkeydown = gameApp.onKeyDown
-document.onkeyup = gameApp.onKeyUp
+const birdAnimator = gameApp.getBirdAnimator()
+window.onmousedown = birdAnimator.onMouseDown.bind(birdAnimator)
+window.onmouseup = birdAnimator.onMouseUp.bind(birdAnimator)
+window.onkeydown = birdAnimator.onKeyDown.bind(birdAnimator)
+window.onkeyup = birdAnimator.onKeyUp.bind(birdAnimator)
 
 const intervalId = window.setInterval(() => {
 	if (!gameApp.onFrameUpdate()) {
