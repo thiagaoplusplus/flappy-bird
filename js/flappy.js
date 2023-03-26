@@ -110,11 +110,11 @@ function Obstacle(parent) {
 	// |            |     |          |
 	// |  topPipe   |     |      topPipeSize
 	// |            |     |          |
-	// +------------+     |  <-------+
-	// |            |     |
-	// |  opening   |  height
-	// |            |     |
-	// +------------+     |  <-------+
+	// +------------+     |  <-------+  <---+
+	// |            |     |                 |
+	// |  opening   |  height            openingSize
+	// |            |     |                 |
+	// +------------+     |  <-------+  <---+--openingPosition
 	// |            |     |          |
 	// | bottomPipe |     |      bottomPipeSize
 	// |            |     |          |
@@ -124,8 +124,11 @@ function Obstacle(parent) {
 
 	this._horizontalPosition = getCSSPropertyAsPercentage(this._obstacleNode, parent, 'left')
 	this._width = getCSSPropertyAsPercentage(this._obstacleNode, parent, 'width')
+	this._height = getCSSPropertyAsPercentage(this._obstacleNode, parent, 'height')
 	this._bottomPipeSize = getCSSPropertyAsPercentage(this._bottomPipeNode, parent, 'height')
 	this._topPipeSize = getCSSPropertyAsPercentage(this._topPipeNode, parent, 'height')
+	this._openingSize = this._height - (this._bottomPipeSize + this._topPipeSize)
+	if (this._openingSize < 0) this._openingSize = 0
 
 	// JS properties to ease obstacle manipulation
 
@@ -159,28 +162,31 @@ function Obstacle(parent) {
 	})
 
 	/**
-	 * The size of the bottom pipe, in percentage units.
+	 * The vertical position of the obstacle opening, in percentage units.
 	 */
-	Object.defineProperty(this, 'bottomPipeSize', {
+	Object.defineProperty(this, 'openingPosition', {
 		get() {
 			return this._bottomPipeSize
 		},
 		set(newValue) {
-			this._bottomPipeSize = newValue
-			this._bottomPipeNode.style.height = `${newValue}%`
+			const newBottomPipeSize = newValue
+			this._bottomPipeSize = newBottomPipeSize
+			this._bottomPipeNode.style.height = `${newBottomPipeSize}%`
+
+			this._adjustTopPipeHeight(newBottomPipeSize, this._openingSize)
 		}
 	})
 
 	/**
-	 * The size of the top pipe, in percentage units.
+	 * The size of the obstacle opening, in percentage units.
 	 */
-	Object.defineProperty(this, 'topPipeSize', {
+	Object.defineProperty(this, 'openingSize', {
 		get() {
-			return this._topPipeSize
+			return this._openingSize
 		},
 		set(newValue) {
-			this._topPipeSize = newValue
-			this._topPipeNode.style.height = `${newValue}%`
+			this._openingSize = newValue
+			this._adjustTopPipeHeight(this._bottomPipeSize, this._openingSize)
 		}
 	})
 
@@ -190,7 +196,7 @@ function Obstacle(parent) {
 	Object.defineProperty(this, 'rectangles', {
 		get() {
 			const obstacleVerticalPosition = 0
-			const obstacleHeight = 100
+			const obstacleHeight = this._height
 			const bottomPipeVerticalPosition = obstacleVerticalPosition
 			const topPipeVerticalPosition = obstacleHeight - this._topPipeSize
 
@@ -206,6 +212,15 @@ function Obstacle(parent) {
 			return [bottomPipeRectangle, topPipeRectangle]
 		}
 	})
+
+	this._adjustTopPipeHeight = function(newBottomPipeSize, newOpeningSize) {
+		let newTopPipeSize = this._height - (newBottomPipeSize + newOpeningSize)
+		if (newTopPipeSize < 0)
+			newTopPipeSize = 0
+
+		this._topPipeSize = newTopPipeSize
+		this._topPipeNode.style.height = `${newTopPipeSize}%`
+	}
 }
 
 /**
@@ -305,17 +320,9 @@ const STAGE_HORIZONTAL_LOWER_LIMIT = 0
 const STAGE_VERTICAL_UPPER_LIMIT = 100
 const STAGE_VERTICAL_LOWER_LIMIT = 0
 
-const OBSTACLES_INITIAL_POSITION = STAGE_HORIZONTAL_UPPER_LIMIT // start out of stage
 const OBSTACLES_WIDTH = 10
 const OBSTACLES_DISTANCE_BETWEEN = 15
-const OBSTACLES_POSITION_OFFSET = OBSTACLES_WIDTH + OBSTACLES_DISTANCE_BETWEEN
 const OBSTACLES_OPENING_SIZE = 30
-const OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT = STAGE_VERTICAL_UPPER_LIMIT - OBSTACLES_OPENING_SIZE
-const OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT = 0
-
-// Maximum number of obstacles visible on screen possible
-const OBSTACLES_MAX_NUMBER_OF = Math.floor(
-	STAGE_HORIZONTAL_UPPER_LIMIT / OBSTACLES_POSITION_OFFSET) + 1
 
 const GAME_FRAME_INTERVAL = 30 // in ms
 const GAME_OBSTACLE_POSITION_DECREMENT = 0.3
@@ -375,59 +382,83 @@ function BirdAnimator(bird, birdPositionIncrement, birdPositionDecrement,
 	}
 }
 
-function GameApp(stage) {
-	const gameStage = stage
-	let obstacleScoredAlready = false
+function ObstaclesAnimator(gameStage,
+	birdVerticalPositionIncrement, birdVerticalPositionDecrement, birdWidth, birdHeight) {
 
-	const score = new Score(gameStage)
-	const bird = new Bird(gameStage)
-	const obstacles = Array(OBSTACLES_MAX_NUMBER_OF)
+	const OBSTACLES_INITIAL_POSITION = STAGE_HORIZONTAL_UPPER_LIMIT // start out of stage
+	const OBSTACLES_POSITION_OFFSET = OBSTACLES_WIDTH + OBSTACLES_DISTANCE_BETWEEN
+	const OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT = STAGE_VERTICAL_UPPER_LIMIT - OBSTACLES_OPENING_SIZE
+	const OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT = 0
 
 	const GAME_FRAMES_BETWEEN_OBSTACLES =
-		Math.floor((OBSTACLES_DISTANCE_BETWEEN - bird.width) / GAME_OBSTACLE_POSITION_DECREMENT)
+		Math.floor((OBSTACLES_DISTANCE_BETWEEN - birdWidth) / GAME_OBSTACLE_POSITION_DECREMENT)
 	const GAME_BIRD_MAX_UP_TRAVEL_BETWEEN_OBSTACLES =
-		GAME_FRAMES_BETWEEN_OBSTACLES * GAME_BIRD_VPOSITION_INCREMENT
+		GAME_FRAMES_BETWEEN_OBSTACLES * birdVerticalPositionIncrement
 	const GAME_BIRD_MAX_DOWN_TRAVEL_BETWEEN_OBSTACLES =
-		GAME_FRAMES_BETWEEN_OBSTACLES * GAME_BIRD_VPOSITION_DECREMENT
-	const GAME_BIRD_TRAVEL_GAP = bird.height * 2
+		GAME_FRAMES_BETWEEN_OBSTACLES * birdVerticalPositionDecrement
+	const GAME_BIRD_TRAVEL_GAP = birdHeight * 2
 
-	this._birdAnimator = new BirdAnimator(bird,
-		GAME_BIRD_VPOSITION_INCREMENT, GAME_BIRD_VPOSITION_DECREMENT,
-		STAGE_VERTICAL_LOWER_LIMIT, STAGE_VERTICAL_UPPER_LIMIT)
 
-	function setRandomOpeningPosition(obstacle, openingSize, minPosition, maxPosition) {
-		obstacle.bottomPipeSize = Math.random() * (maxPosition - minPosition) + minPosition
-		obstacle.topPipeSize = STAGE_HORIZONTAL_UPPER_LIMIT - (obstacle.bottomPipeSize + openingSize)
+	this.onFrameUpdate = function() {
+		// Obstacles position update
+		this._obstacles.forEach((obstacle) => obstacle.position -= GAME_OBSTACLE_POSITION_DECREMENT)
+		
+		// End of obstacle course condition
+		const lastObstacle = this._obstacles[this._obstacles.length - 1]
+		const obstacleStartOfCourse = lastObstacle.position + OBSTACLES_POSITION_OFFSET
+		const obstacleEndOfCourse = STAGE_HORIZONTAL_LOWER_LIMIT - this._obstacles[0].width // 0% - width
+		if (this._obstacles[0].position <= obstacleEndOfCourse) {
+			// Each obstacle disapears on the left side of screen (end of course) and reappears on
+			// the right side of the screen (start of course) in a circular manner.
+			// The same way, its position in the array is circular. Below, I'm shifting the obstacles
+			// array and putting the obstacle in the first position back to the end position.
+			this._obstacles[0].position = obstacleStartOfCourse
+			const swapTemp = this._obstacles[0]
+			let i
+			for (i = 1; i < this._obstacles.length; i++) {
+				this._obstacles[i - 1] = this._obstacles[i]
+			}
+			this._obstacles[i - 1] = swapTemp
+
+			this._randomizeOpeningPositionForNewObstacle(this._obstacles[i - 1], this._obstacles[i - 2])
+			//obstacleScoredAlready = false
+		}
 	}
-	
-	function setRandomOpeningPositionForNextObstacle(nextObstacle, previousObstacle) {
-		//                 Previous
-		//                          Next
-		//                         | |                                          | |
-		//        +-----> +-+\     | | <----------+        +---------> +-+\     | |
-		//        |       | | \    | |            |        |           | | \    | |
-		// bottomPipeSize | |  \   | |             Bird max            | |  \   +-+ <--+-------+
-		//                | |   \  | |            down travel          | |   \         |       |
-		//                | |    \ | |            |        |           | |    \       Gap      |
-		//                | |     \+-+ <----------+        +---------> | |     \    <--+     Opening
-		//                | |           (Gap = 0) |                    | |                    size
-		//                | |                     |                    | |                     |
-		//                | |                   Opening                | |      +-+ <----------+
-		//                | |                    size                  | |      | |
-		//                | |                     |                    | |      | |
-		//                | |      +-+ <----------+                    | |      | |
-		//                | |      | |                                 | |      | |
-		//                 Without Gap                                   With Gap
-		//                        (the greater the gap, the easier the game)
+
+	this._setRandomOpeningPositionForObstacle = function(obstacle, minPosition, maxPosition) {
+		obstacle.openingPosition = Math.random() * (maxPosition - minPosition) + minPosition
+	}
+
+	this._randomizeOpeningPositionForNewObstacle = function(newObstacle, previousObstacle) {
+		//                Previous
+		//                  v       New
+		//                           v
+		//                          | |                                          | |
+		//        +------> +-+\     | | <----------+        +---------> +-+\     | |
+		//        |        | | \    | |            |        |           | | \    | |
+		// openingPosition | |  \   | |             Bird max            | |  \   +-+ <--+-------+
+		//                 | |   \  | |            down travel          | |   \         |       |
+		//                 | |    \ | |            |        |           | |    \       Gap      |
+		//                 | |     \+-+ <----------+        +---------> | |     \    <--+     Opening
+		//                 | |           (Gap = 0) |                    | |                    size
+		//                 | |                     |                    | |                     |
+		//                 | |                   Opening                | |      +-+ <----------+
+		//                 | |                    size                  | |      | |
+		//                 | |                     |                    | |      | |
+		//                 | |      +-+ <----------+                    | |      | |
+		//                 | |      | |                                 | |      | |
+		//                  Without Gap                                   With Gap
+		//                         (the greater the gap, the easier the game)
 		// From the image above we derive the calculus below:
-		let minBottomPipeSize = (previousObstacle.bottomPipeSize -
+		let minOpeningPosition = (previousObstacle.openingPosition -
 			GAME_BIRD_MAX_DOWN_TRAVEL_BETWEEN_OBSTACLES - OBSTACLES_OPENING_SIZE) + GAME_BIRD_TRAVEL_GAP
-		if (minBottomPipeSize < OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT) {
-			minBottomPipeSize = OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT
+		if (minOpeningPosition < OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT) {
+			minOpeningPosition = OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT
 		}
 	
-		//                  Previous
-		//                           Next
+		//                Previous
+		//                  v       New
+		//                           v
 		//                 | |      | |                                 | |      | |
 		//                 | |      +-+ <----------+                    | |      | |
 		//                 | |                     |                    | |      | |
@@ -442,21 +473,56 @@ function GameApp(stage) {
 		//                 | | /    | |            |        |           | | /    | |
 		//       +-------> +-+/     | | <----------+        +---------> +-+/     | |
 		//       |                  | |                                          | |
-		// (bottomPipeSize          | |                                          | |
+		// (OpeningPosition         | |                                          | |
 		//       +                  | |                                          | |
 		//  openingSize)            | |                                          | |
 		//                  Without Gap                                   With Gap
 		//                         (the greater the gap, the easier the game)
 		// From the image above we derive the calculus below:
-		let maxBottomPipeSize = (previousObstacle.bottomPipeSize + OBSTACLES_OPENING_SIZE +
+		let maxOpeningPosition = (previousObstacle.openingPosition + OBSTACLES_OPENING_SIZE +
 			GAME_BIRD_MAX_UP_TRAVEL_BETWEEN_OBSTACLES) - GAME_BIRD_TRAVEL_GAP
-		if (maxBottomPipeSize > OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT) {
-			maxBottomPipeSize = OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT
+		if (maxOpeningPosition > OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT) {
+			maxOpeningPosition = OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT
 		}
-	
-		setRandomOpeningPosition(nextObstacle, OBSTACLES_OPENING_SIZE, minBottomPipeSize, maxBottomPipeSize)
+
+		this._setRandomOpeningPositionForObstacle(newObstacle, minOpeningPosition, maxOpeningPosition)
 	}
-	
+
+
+	// Maximum number of obstacles visible on screen possible
+	const OBSTACLES_MAX_NUMBER_OF = Math.floor(
+		STAGE_HORIZONTAL_UPPER_LIMIT / OBSTACLES_POSITION_OFFSET) + 1
+
+	this._obstacles = Array(OBSTACLES_MAX_NUMBER_OF)
+
+	this._obstacles[0] = new Obstacle(gameStage)
+	this._obstacles[0].position = OBSTACLES_INITIAL_POSITION
+	this._obstacles[0].openingSize = OBSTACLES_OPENING_SIZE
+	this._setRandomOpeningPositionForObstacle(this._obstacles[0],
+		OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT, OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT)
+
+	for (i = 1; i < OBSTACLES_MAX_NUMBER_OF; i++) {
+		this._obstacles[i] = new Obstacle(gameStage)
+		this._obstacles[i].position = OBSTACLES_INITIAL_POSITION + i*OBSTACLES_POSITION_OFFSET
+		this._obstacles[i].openingSize = OBSTACLES_OPENING_SIZE
+		this._randomizeOpeningPositionForNewObstacle(this._obstacles[i], this._obstacles[i - 1])
+	}
+}
+
+function GameApp(stage) {
+	const gameStage = stage
+	let obstacleScoredAlready = false
+
+	const score = new Score(gameStage)
+	const bird = new Bird(gameStage)
+
+	this._birdAnimator = new BirdAnimator(bird,
+		GAME_BIRD_VPOSITION_INCREMENT, GAME_BIRD_VPOSITION_DECREMENT,
+		STAGE_VERTICAL_LOWER_LIMIT, STAGE_VERTICAL_UPPER_LIMIT)
+
+	this._obstacleAnimator = new ObstaclesAnimator(gameStage,
+		GAME_BIRD_VPOSITION_INCREMENT, GAME_BIRD_VPOSITION_DECREMENT, bird.width, bird.height)
+
 	function didPlayerScoreOnePoint(bird, obstacle, obstacleScoredAlready) {
 		if (bird.horizontalPosition > (obstacle.position + obstacle.width)) {
 			return (!obstacleScoredAlready)
@@ -470,57 +536,23 @@ function GameApp(stage) {
 	}
 
 	this.onFrameUpdate = function() {
-		// Obstacles position update
-		obstacles[0].position -= GAME_OBSTACLE_POSITION_DECREMENT
-		for (let i = 1; i < obstacles.length; i++) {
-			if ((obstacles[i].position - obstacles[i - 1].position) >= OBSTACLES_POSITION_OFFSET) {
-				obstacles[i].position -= GAME_OBSTACLE_POSITION_DECREMENT
-			}
-		}
-		
-		// End of obstacle course condition
-		const obstacleStartOfCourse = OBSTACLES_INITIAL_POSITION
-		const obstacleEndOfCourse = STAGE_HORIZONTAL_LOWER_LIMIT - obstacles[0].width // 0% - width
-		if (obstacles[0].position <= obstacleEndOfCourse) {
-			obstacles[0].position = obstacleStartOfCourse
-			const swapTemp = obstacles[0]
-			let i
-			for (i = 1; i < obstacles.length; i++) {
-				obstacles[i - 1] = obstacles[i]
-			}
-			obstacles[i - 1] = swapTemp
-
-			setRandomOpeningPositionForNextObstacle(obstacles[i - 1], obstacles[i - 2])
-			obstacleScoredAlready = false
-		}
-
 		// Bird position update
 		this._birdAnimator.onFrameUpdate()
 
+		this._obstacleAnimator.onFrameUpdate()
+
 		// Score update
-		let playerScoredOnePoint = didPlayerScoreOnePoint(bird, obstacles[0], obstacleScoredAlready)
+		let playerScoredOnePoint = 0//didPlayerScoreOnePoint(bird, obstacles[0], obstacleScoredAlready)
 		if (playerScoredOnePoint) {
 			score.increment()
 		}
 		obstacleScoredAlready |= playerScoredOnePoint
 
 		// Game over condition
-		const birdRectangle = bird.rectangles[0]
-		const obstacleRectangles = obstacles[0].rectangles
-		let gameIsOver = obstacleRectangles.some(rectangle => birdRectangle.isOverlapping(rectangle))
-		return !gameIsOver
-	}
-
-	// init
-	obstacles[0] = new Obstacle(gameStage)
-	obstacles[0].position = OBSTACLES_INITIAL_POSITION
-	setRandomOpeningPosition(obstacles[0], OBSTACLES_OPENING_SIZE,
-		OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT, OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT)
-
-	for (i = 1; i < OBSTACLES_MAX_NUMBER_OF; i++) {
-		obstacles[i] = new Obstacle(gameStage)
-		obstacles[i].position = OBSTACLES_INITIAL_POSITION
-		setRandomOpeningPositionForNextObstacle(obstacles[i], obstacles[i - 1])
+		// const birdRectangle = bird.rectangles[0]
+		// const obstacleRectangles = obstacles[0].rectangles
+		// let gameIsOver = obstacleRectangles.some(rectangle => birdRectangle.isOverlapping(rectangle))
+		return true//return !gameIsOver
 	}
 }
 
