@@ -341,6 +341,7 @@ function BirdAnimator(bird,
 	this._bird.verticalPosition = this._birdInitialVerticalPosition
 
 	this._userInputMouseClicked = false
+	this._userInputScreenTouched = false
 	this._userInputKeyPressed = false
 
 
@@ -356,6 +357,20 @@ function BirdAnimator(bird,
 	 */
 	this.onMouseUp = function() {
 		this._userInputMouseClicked = false
+	}
+
+	/**
+	 * Touch start event function.
+	 */
+	this.onTouchStart = function() {
+		this._userInputScreenTouched = true
+	}
+
+	/**
+	 * Touch end event function.
+	 */
+	this.onTouchEnd = function() {
+		this._userInputScreenTouched = false
 	}
 
 	/**
@@ -388,7 +403,8 @@ function BirdAnimator(bird,
 			this._stageVerticalUpperLimit - this._bird.height // i.e. 100% - height
 		const birdLowerEndOfCourse = this._stageVerticalLowerLimit
 
-		const inputBirdIsFlying = this._userInputKeyPressed || this._userInputMouseClicked
+		const inputBirdIsFlying =
+			this._userInputKeyPressed || this._userInputScreenTouched || this._userInputMouseClicked
 		if (inputBirdIsFlying) {
 			if (this._bird.verticalPosition < birdUpperEndOfCourse) {
 				this._bird.verticalPosition += this._birdPositionIncrement
@@ -771,6 +787,8 @@ const gameApp = new GameApp(gameStage)
 const birdAnimator = gameApp.getBirdAnimator()
 window.onmousedown = birdAnimator.onMouseDown.bind(birdAnimator)
 window.onmouseup = birdAnimator.onMouseUp.bind(birdAnimator)
+window.ontouchstart = birdAnimator.onTouchStart.bind(birdAnimator)
+window.ontouchend = birdAnimator.onTouchEnd.bind(birdAnimator)
 window.onkeydown = birdAnimator.onKeyDown.bind(birdAnimator)
 window.onkeyup = birdAnimator.onKeyUp.bind(birdAnimator)
 
