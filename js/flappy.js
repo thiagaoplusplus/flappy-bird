@@ -2,7 +2,7 @@
  * Gets a CSS property of an element as percentage relative to its parent.
  * 
  * @param {HTMLElement} element The HTML element to read the CSS property
- * @param {string} property The CSS property to read.
+ * @param {String} property The CSS property to read.
  * @returns The CSS property as a percentage and as a number type.
  */
  function getCSSPropertyAsPercentage(element, parentElement, property) {
@@ -19,10 +19,10 @@
  * absolute pixel values and I'm working with relative percentage values. So, I want to
  * store the values in percentage here to avoid conversions.
  * 
- * @param {number} originX The rectangle position on X axis
- * @param {number} originY The rectangle position on Y axis
- * @param {number} width   The width of the rectangle
- * @param {number} height  The height of the rectangle
+ * @param {Number} originX The rectangle position on X axis
+ * @param {Number} originY The rectangle position on Y axis
+ * @param {Number} width   The width of the rectangle
+ * @param {Number} height  The height of the rectangle
  */
 function Rectangle(originX = 0, originY = 0, width = 0, height = 0) {
 
@@ -312,6 +312,17 @@ function Bird(parent) {
 	})
 }
 
+/**
+ * Encapsulates the logic to animate the bird.
+ * 
+ * @param {Bird} bird The bird to animate.
+ * @param {Number} birdPositionIncrement The bird vertical position increment on every frame.
+ * @param {Number} birdPositionDecrement The bird vertical position decrement on every frame.
+ * @param {Number} birdInitialVerticalPosition The bird vertical position at the start of the animation.
+ * @param {Number} birdFixedHorizontalPosition The bird horizontal position.
+ * @param {Number} stageVerticalLowerLimit The lower limit for the bird travel.
+ * @param {Number} stageVerticalUpperLimit The upper limit for the bird travel.
+ */
 function BirdAnimator(bird,
 	birdPositionIncrement, birdPositionDecrement,
 	birdInitialVerticalPosition, birdFixedHorizontalPosition,
@@ -333,26 +344,44 @@ function BirdAnimator(bird,
 	this._userInputKeyPressed = false
 
 
+	/**
+	 * Mouse down event function.
+	 */
 	this.onMouseDown = function() {
 		this._userInputMouseClicked = true
 	}
-	
+
+	/**
+	 * Mouse up event function.
+	 */
 	this.onMouseUp = function() {
 		this._userInputMouseClicked = false
 	}
-	
+
+	/**
+	 * Key down event function.
+	 */
 	this.onKeyDown = function() {
 		this._userInputKeyPressed = true
 	}
-	
+
+	/**
+	 * Key up event function.
+	 */
 	this.onKeyUp = function() {
 		this._userInputKeyPressed = false
 	}
 
+	/**
+	 * Event function called when the game is started.
+	 */
 	this.onGameStart = function() {
 		this._bird.verticalPosition = this._birdInitialVerticalPosition
 	}
 
+	/**
+	 * Event function called on every frame update.
+	 */
 	this.onFrameUpdate = function() {
 		// Bird position update
 		const birdUpperEndOfCourse =
@@ -376,6 +405,20 @@ function BirdAnimator(bird,
 	}
 }
 
+/**
+ * Encapsulates the logic to animate an obstacle cyclically.
+ * 
+ * @param {Obstacle} obstacle The obstacle to animate.
+ * @param {Number} obstaclePositionDecrement The obstacle position decrement on every frame.
+ * @param {Number} obstacleStartPosition The obstacle position at the start of the first animation cycle.
+ * @param {Number} obstacleRestartPosition The obstacle position at the start of all animation cycles, except the first.
+ * @param {Number} obstacleOpeningSize The obstacle opening size
+ * @param {Number} scorePositionThreshold The point in the obstacle travel that we consider that the obstacle was passed and the player scored 1 point.
+ * @param {Number} stageHorizontalLowerLimit The lower limit for the obstacle travel.
+ * @param {Number} stageHorizontalUpperLimit The upper limit for the obstacle travel.
+ * @param {Function} onAnimationStartFunction Notification function called every time a new animation cycle is started.
+ * @param {Function} onScoreFunction Notification function called every time an obstacle is passed (player scored 1 point).
+ */
 function ObstacleAnimator(obstacle,
 	obstaclePositionDecrement, obstacleStartPosition,
 	obstacleRestartPosition, obstacleOpeningSize, scorePositionThreshold,
@@ -398,11 +441,17 @@ function ObstacleAnimator(obstacle,
 	this._obstacle.openingSize = this._obstacleOpeningSize
 
 
+	/**
+	 * Event function called when the game is started.
+	 */
 	this.onGameStart = function() {
 		this._obstacle.position = this._obstacleStartPosition
 		this._onAnimationStartFunction(this._obstacle)
 	}
 
+	/**
+	 * Event function called on every frame update.
+	 */
 	this.onFrameUpdate = function() {
 		// Obstacle position update
 		this._obstacle.position -= this._obstaclePositionDecrement
@@ -423,44 +472,107 @@ function ObstacleAnimator(obstacle,
 	}
 }
 
+/**
+ * Main class, contains the logic for the pipes randomization, the score computation,
+ * the colision processing and other things.
+ * 
+ * @param {HTMLElement} stage The parent HTML element for the game elements.
+ */
 function GameApp(stage) {
 
-	const GAME_FRAME_INTERVAL = 30 // in ms
+	/** Frame update interval, in milliseconds. */
+	const GAME_FRAME_INTERVAL = 30
 
-	// Values here and below for positioning/sizing are in % of the stage size
+	/**
+	 * Horizontal position where the stage ends (right side of the screen) in %.
+	 * Minimum: 0%, Maximum: 100%
+	 */
 	const STAGE_HORIZONTAL_UPPER_LIMIT = 100
+
+	/**
+	 * Horizontal position where the stage begins (left side of the screen) in %.
+	 * Minimum: 0%, Maximum: 100%
+	 */
 	const STAGE_HORIZONTAL_LOWER_LIMIT = 0
+
+	/**
+	 * Vertical position where the stage ends (top side of the screen) in %.
+	 * Minimum: 0%, Maximum: 100%
+	 */
 	const STAGE_VERTICAL_UPPER_LIMIT = 100
+
+	/**
+	 * Vertical position where the stage begins (bottom side of the screen) in %.
+	 * Minimum: 0%, Maximum: 100%
+	 */
 	const STAGE_VERTICAL_LOWER_LIMIT = 0
-	
+
+
+	/** Bird width in %. Minimum: 0%, Maximum: 100% */
 	const BIRD_WIDTH = 4
+
+	/** Bird height in %. Minimum: 0%, Maximum: 100% */
 	const BIRD_HEIGHT = 5
+
+	/** Bird initical vertical position in %. Minimum: 0%, Maximum: 100% */
 	const BIRD_INITIAL_VERTICAL_POSITION = 50
+
+	/** Bird horizontal position in %. Minimum: 0%, Maximum: 100% */
 	const BIRD_FIXED_HORIZONTAL_POSITION = 15
+
+	/** Bird vertical position increment on each frame update, in %. Minimum: 0%, Maximum: 100% */
 	const BIRD_VPOSITION_INCREMENT = 0.8
+
+	/** Bird vertical position decrement on each frame update, in %. Minimum: 0%, Maximum: 100% */
 	const BIRD_VPOSITION_DECREMENT = 0.5
-	
+
+	/** Width for every obstacle, in %. Minimum: 0%, Maximum: 100% */
 	const OBSTACLES_WIDTH = 10
+
+	/** Distance between the end of an obstacle and the start of the next one, in %. Minimum: 0%, Maximum: 100% */
 	const OBSTACLES_DISTANCE_BETWEEN = 15
+
+	/** Opening size for every obstacle, in %. Minimum: 0%, Maximum: 100% */
 	const OBSTACLES_OPENING_SIZE = 30
+
+	/** Obstacle position decrement on each frame update, in %. Minimum: 0%, Maximum: 100% */
 	const OBSTACLES_POSITION_DECREMENT = 0.3
 
+	/** Initial position for the first obstacle, in %. Minimum: 0%, Maximum: 100% */
 	const OBSTACLES_INITIAL_POSITION = STAGE_HORIZONTAL_UPPER_LIMIT // start out of stage
-	const OBSTACLES_POSITION_OFFSET = OBSTACLES_WIDTH + OBSTACLES_DISTANCE_BETWEEN
-	const OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT = STAGE_VERTICAL_UPPER_LIMIT - OBSTACLES_OPENING_SIZE
-	const OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT = 0
 
+	/** Distance between the start of an obstacle and the start of the next one, in %. Minimum: 0%, Maximum: 100% */
+	const OBSTACLES_POSITION_OFFSET = OBSTACLES_WIDTH + OBSTACLES_DISTANCE_BETWEEN
+
+	/** Maximum height for an obstacle opening position, in %. Minimum: 0%, Maximum: 100% */
+	const OBSTACLES_OPENING_POSITION_UPPER_LIMIT = STAGE_VERTICAL_UPPER_LIMIT - OBSTACLES_OPENING_SIZE
+
+	/** Minimum height for an obstacle opening position, in %. Minimum: 0%, Maximum: 100% */
+	const OBSTACLES_OPENING_POSITION_LOWER_LIMIT = 0
+
+	/**
+	 * Number of frames between an obstacle and the next one. Given a position on screen,
+	 * once an obstacle passed by it, this is the number of frames needed to the next
+	 * obstacle to reach the same position.
+	 */
 	const OBSTACLES_FRAMES_BETWEEN =
 		Math.floor((OBSTACLES_DISTANCE_BETWEEN - BIRD_WIDTH) / OBSTACLES_POSITION_DECREMENT)
+
+	/** Maximum distance upwards that the bird can fly since it passes an obstacle until it reaches the next one. */
 	const BIRD_MAX_UP_TRAVEL_BETWEEN_OBSTACLES =
 		OBSTACLES_FRAMES_BETWEEN * BIRD_VPOSITION_INCREMENT
+
+	/** Maximum distance downwards that the bird can fly since it passes an obstacle until it reaches the next one. */
 	const BIRD_MAX_DOWN_TRAVEL_BETWEEN_OBSTACLES =
 		OBSTACLES_FRAMES_BETWEEN * BIRD_VPOSITION_DECREMENT
+
+	/** Defines how hard is to travel between an obstacle and the next one. */
 	const BIRD_TRAVEL_GAP = BIRD_HEIGHT * 2
 
-	// Maximum number of obstacles visible on screen possible
+	/** Maximum number of obstacles visible on screen possible */
 	const OBSTACLES_MAX_NUMBER_OF = Math.floor(
 		STAGE_HORIZONTAL_UPPER_LIMIT / OBSTACLES_POSITION_OFFSET) + 1
+
 
 	this._gameStage = stage
 
@@ -495,14 +607,34 @@ function GameApp(stage) {
 	this._indexOfNextObstacleToScore = 0
 
 
+	/** Gets the BirdAnimator instance used in the game. */
 	this.getBirdAnimator = function() {
 		return this._birdAnimator
 	}
 
+
+	/**
+	 * Randomize the opening position of an obstacle using position limits.
+	 * 
+	 * @param {Obstacle} obstacle The obstacle to randomize the opening position.
+	 * @param {Number} minPosition The minimum limit for the opening position.
+	 * @param {Number} maxPosition The maximum limit for the opening position.
+	 */
 	this._setRandomOpeningPositionForObstacle = function(obstacle, minPosition, maxPosition) {
 		obstacle.openingPosition = Math.random() * (maxPosition - minPosition) + minPosition
 	}
 
+	/**
+	 * Randomizes the opening position for the next obstacle based on the previous obstacle.
+	 * The randomization is performed in a way that the bird is always able to reach the
+	 * next opening. If the positions are randomized without any parameters using the entire
+	 * vertical screen space, it may happen that the generated opening position is too far
+	 * for the bird to reach. That's why we use the previous obstacle and the bird's travel
+	 * capacity as parameters.
+	 * 
+	 * @param {Obstacle} newObstacle The next obstacle to randomize the opening position.
+	 * @param {Obstacle} previousObstacle The previous obstacle.
+	 */
 	this._randomizeOpeningPositionForNewObstacle = function(newObstacle, previousObstacle) {
 		//                Previous
 		//                  v       New
@@ -526,8 +658,8 @@ function GameApp(stage) {
 		// From the image above we derive the calculus below:
 		let minOpeningPosition = (previousObstacle.openingPosition -
 			BIRD_MAX_DOWN_TRAVEL_BETWEEN_OBSTACLES - OBSTACLES_OPENING_SIZE) + BIRD_TRAVEL_GAP
-		if (minOpeningPosition < OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT) {
-			minOpeningPosition = OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT
+		if (minOpeningPosition < OBSTACLES_OPENING_POSITION_LOWER_LIMIT) {
+			minOpeningPosition = OBSTACLES_OPENING_POSITION_LOWER_LIMIT
 		}
 	
 		//                Previous
@@ -555,13 +687,16 @@ function GameApp(stage) {
 		// From the image above we derive the calculus below:
 		let maxOpeningPosition = (previousObstacle.openingPosition + OBSTACLES_OPENING_SIZE +
 			BIRD_MAX_UP_TRAVEL_BETWEEN_OBSTACLES) - BIRD_TRAVEL_GAP
-		if (maxOpeningPosition > OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT) {
-			maxOpeningPosition = OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT
+		if (maxOpeningPosition > OBSTACLES_OPENING_POSITION_UPPER_LIMIT) {
+			maxOpeningPosition = OBSTACLES_OPENING_POSITION_UPPER_LIMIT
 		}
 
 		this._setRandomOpeningPositionForObstacle(newObstacle, minOpeningPosition, maxOpeningPosition)
 	}
 
+	/**
+	 * Notification function called when the player passed one obstacle.
+	 */
 	this._onPlayerPointScored = function() {
 		this._score.increment()
 
@@ -573,25 +708,39 @@ function GameApp(stage) {
 		}
 	}
 
+	/**
+	 * Notification function called when a new animation cycle starts for an obstacle.
+	 */
 	this._onObstacleAnimationStart = function(obstacle) {
 		this._randomizeOpeningPositionForNewObstacle(obstacle, this._lastObstacleRandomized)
 		this._lastObstacleRandomized = obstacle
 	}
 
+	/**
+	 * Event function called when the game is started.
+	 */
 	this._onGameStart = function() {
 		this._score.reset()
 		this._birdAnimator.onGameStart()
 
 		this._setRandomOpeningPositionForObstacle(this._lastObstacleRandomized,
-			OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT, OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT)
+			OBSTACLES_OPENING_POSITION_LOWER_LIMIT, OBSTACLES_OPENING_POSITION_UPPER_LIMIT)
 		this._obstacleAnimators.forEach(animator => animator.onGameStart())
 	}
 
+	/**
+	 * Updates the game screen.
+	 */
 	this._updateFrame = function() {
 		this._birdAnimator.onFrameUpdate()
 		this._obstacleAnimators.forEach((animator) => animator.onFrameUpdate())
 	}
 
+	/**
+	 * Checks if the game over condition.
+	 * 
+	 * @returns true if the game over condition is fulfilled.
+	 */
 	this.isGameOver = function() {
 		const birdRectangle = this._bird.rectangles[0]
 		const obstacleRectangles =
@@ -601,6 +750,9 @@ function GameApp(stage) {
 		return gameIsOver
 	}
 
+	/**
+	 * Starts/Restarts the game.
+	 */
 	this.start = function() {
 		this._onGameStart()
 
