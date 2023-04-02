@@ -106,7 +106,7 @@ function Obstacle(parent) {
 	parent.appendChild(obstacle)
 
 	// overview of the constructed structure:
-	// +------------+ <---+  <-------+           100% -> verticalPosition + height
+	// +------------+ <---+  <-------+           100%
 	// |            |     |          |
 	// |  topPipe   |     |      topPipeSize
 	// |            |     |          |
@@ -118,7 +118,7 @@ function Obstacle(parent) {
 	// |            |     |          |
 	// | bottomPipe |     |      bottomPipeSize
 	// |            |     |          |
-	// +------------+ <---+  <-------+             0% -> verticalPosition
+	// +------------+ <---+  <-------+             0%
 	// ^            ^
 	// |   width    |
 
@@ -312,33 +312,22 @@ function Bird(parent) {
 	})
 }
 
-const gameStage = document.querySelector('.content [wm-flappy]')
-
-// Values here and below for positioning/sizing are in % of the stage size
-const STAGE_HORIZONTAL_UPPER_LIMIT = 100
-const STAGE_HORIZONTAL_LOWER_LIMIT = 0
-const STAGE_VERTICAL_UPPER_LIMIT = 100
-const STAGE_VERTICAL_LOWER_LIMIT = 0
-
-const OBSTACLES_WIDTH = 10
-const OBSTACLES_DISTANCE_BETWEEN = 15
-const OBSTACLES_OPENING_SIZE = 30
-
-const GAME_FRAME_INTERVAL = 30 // in ms
-const GAME_OBSTACLE_POSITION_DECREMENT = 0.3
-const GAME_BIRD_VPOSITION_INCREMENT = 0.8
-const GAME_BIRD_VPOSITION_DECREMENT = 0.5
-
-
-function BirdAnimator(bird, birdPositionIncrement, birdPositionDecrement,
+function BirdAnimator(bird,
+	birdPositionIncrement, birdPositionDecrement,
+	birdInitialVerticalPosition, birdFixedHorizontalPosition,
 	stageVerticalLowerLimit, stageVerticalUpperLimit) {
 
-	const BIRD_INITIAL_VERTICAL_POSITION = 50
-	const BIRD_FIXED_HORIZONTAL_POSITION = 10
-
 	this._bird = bird
-	this._bird.horizontalPosition = BIRD_FIXED_HORIZONTAL_POSITION
-	this._bird.verticalPosition = BIRD_INITIAL_VERTICAL_POSITION
+	this._birdPositionIncrement = birdPositionIncrement
+	this._birdPositionDecrement = birdPositionDecrement
+	this._stageVerticalLowerLimit = stageVerticalLowerLimit
+	this._stageVerticalUpperLimit = stageVerticalUpperLimit
+	this._birdInitialVerticalPosition = birdInitialVerticalPosition
+	this._birdFixedHorizontalPosition = birdFixedHorizontalPosition
+
+
+	this._bird.horizontalPosition = this._birdFixedHorizontalPosition
+	this._bird.verticalPosition = this._birdInitialVerticalPosition
 
 	this._userInputMouseClicked = false
 	this._userInputKeyPressed = false
@@ -360,21 +349,26 @@ function BirdAnimator(bird, birdPositionIncrement, birdPositionDecrement,
 		this._userInputKeyPressed = false
 	}
 
+	this.onGameStart = function() {
+		this._bird.verticalPosition = this._birdInitialVerticalPosition
+	}
+
 	this.onFrameUpdate = function() {
 		// Bird position update
-		const birdUpperEndOfCourse = stageVerticalUpperLimit - this._bird.height // i.e. 100% - height
-		const birdLowerEndOfCourse = stageVerticalLowerLimit
+		const birdUpperEndOfCourse =
+			this._stageVerticalUpperLimit - this._bird.height // i.e. 100% - height
+		const birdLowerEndOfCourse = this._stageVerticalLowerLimit
 
 		const inputBirdIsFlying = this._userInputKeyPressed || this._userInputMouseClicked
 		if (inputBirdIsFlying) {
 			if (this._bird.verticalPosition < birdUpperEndOfCourse) {
-				this._bird.verticalPosition += birdPositionIncrement
+				this._bird.verticalPosition += this._birdPositionIncrement
 			} else {
 				this._bird.verticalPosition = birdUpperEndOfCourse
 			}
 		}	else {
 			if (this._bird.verticalPosition > birdLowerEndOfCourse) {
-				this._bird.verticalPosition -= birdPositionDecrement
+				this._bird.verticalPosition -= this._birdPositionDecrement
 			} else {
 				this._bird.verticalPosition = birdLowerEndOfCourse
 			}
@@ -382,47 +376,127 @@ function BirdAnimator(bird, birdPositionIncrement, birdPositionDecrement,
 	}
 }
 
-function ObstaclesAnimator(gameStage,
-	birdVerticalPositionIncrement, birdVerticalPositionDecrement, birdWidth, birdHeight) {
+function ObstacleAnimator(obstacle,
+	obstaclePositionDecrement, obstacleStartPosition,
+	obstacleRestartPosition, obstacleOpeningSize, scorePositionThreshold,
+	stageHorizontalLowerLimit, stageHorizontalUpperLimit,
+	onAnimationStartFunction, onScoreFunction) {
+
+	this._obstacle = obstacle
+	this._obstaclePositionDecrement = obstaclePositionDecrement
+	this._obstacleStartPosition = obstacleStartPosition
+	this._obstacleRestartPosition = obstacleRestartPosition
+	this._obstacleOpeningSize = obstacleOpeningSize
+	this._scorePositionThreshold = scorePositionThreshold
+	this._stageHorizontalLowerLimit = stageHorizontalLowerLimit
+	this._stageHorizontalUpperLimit = stageHorizontalUpperLimit
+	this._onAnimationStartFunction = onAnimationStartFunction
+	this._onScoreFunction = onScoreFunction
+
+
+	this._obstacle.position = obstacleStartPosition
+	this._obstacle.openingSize = this._obstacleOpeningSize
+
+
+	this.onGameStart = function() {
+		this._obstacle.position = this._obstacleStartPosition
+		this._onAnimationStartFunction(this._obstacle)
+	}
+
+	this.onFrameUpdate = function() {
+		// Obstacle position update
+		this._obstacle.position -= this._obstaclePositionDecrement
+		
+		// End of obstacle course condition
+		const obstacleStartOfCourse = this._obstacleRestartPosition
+		const obstacleEndOfCourse = this._stageHorizontalLowerLimit - this._obstacle.width
+		if (this._obstacle.position <= obstacleEndOfCourse) {
+			this._obstacle.position = this._obstacleRestartPosition
+			this._onAnimationStartFunction(this._obstacle)
+		}
+
+		// Obstacle passed the score position condition
+		if ( (this._obstacle.position < this._scorePositionThreshold) &&
+		     ((this._obstacle.position + this._obstaclePositionDecrement) >= this._scorePositionThreshold) ) {
+			this._onScoreFunction()
+		}
+	}
+}
+
+function GameApp(stage) {
+
+	const GAME_FRAME_INTERVAL = 30 // in ms
+
+	// Values here and below for positioning/sizing are in % of the stage size
+	const STAGE_HORIZONTAL_UPPER_LIMIT = 100
+	const STAGE_HORIZONTAL_LOWER_LIMIT = 0
+	const STAGE_VERTICAL_UPPER_LIMIT = 100
+	const STAGE_VERTICAL_LOWER_LIMIT = 0
+	
+	const BIRD_WIDTH = 4
+	const BIRD_HEIGHT = 5
+	const BIRD_INITIAL_VERTICAL_POSITION = 50
+	const BIRD_FIXED_HORIZONTAL_POSITION = 15
+	const BIRD_VPOSITION_INCREMENT = 0.8
+	const BIRD_VPOSITION_DECREMENT = 0.5
+	
+	const OBSTACLES_WIDTH = 10
+	const OBSTACLES_DISTANCE_BETWEEN = 15
+	const OBSTACLES_OPENING_SIZE = 30
+	const OBSTACLES_POSITION_DECREMENT = 0.3
 
 	const OBSTACLES_INITIAL_POSITION = STAGE_HORIZONTAL_UPPER_LIMIT // start out of stage
 	const OBSTACLES_POSITION_OFFSET = OBSTACLES_WIDTH + OBSTACLES_DISTANCE_BETWEEN
 	const OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT = STAGE_VERTICAL_UPPER_LIMIT - OBSTACLES_OPENING_SIZE
 	const OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT = 0
 
-	const GAME_FRAMES_BETWEEN_OBSTACLES =
-		Math.floor((OBSTACLES_DISTANCE_BETWEEN - birdWidth) / GAME_OBSTACLE_POSITION_DECREMENT)
-	const GAME_BIRD_MAX_UP_TRAVEL_BETWEEN_OBSTACLES =
-		GAME_FRAMES_BETWEEN_OBSTACLES * birdVerticalPositionIncrement
-	const GAME_BIRD_MAX_DOWN_TRAVEL_BETWEEN_OBSTACLES =
-		GAME_FRAMES_BETWEEN_OBSTACLES * birdVerticalPositionDecrement
-	const GAME_BIRD_TRAVEL_GAP = birdHeight * 2
+	const OBSTACLES_FRAMES_BETWEEN =
+		Math.floor((OBSTACLES_DISTANCE_BETWEEN - BIRD_WIDTH) / OBSTACLES_POSITION_DECREMENT)
+	const BIRD_MAX_UP_TRAVEL_BETWEEN_OBSTACLES =
+		OBSTACLES_FRAMES_BETWEEN * BIRD_VPOSITION_INCREMENT
+	const BIRD_MAX_DOWN_TRAVEL_BETWEEN_OBSTACLES =
+		OBSTACLES_FRAMES_BETWEEN * BIRD_VPOSITION_DECREMENT
+	const BIRD_TRAVEL_GAP = BIRD_HEIGHT * 2
+
+	// Maximum number of obstacles visible on screen possible
+	const OBSTACLES_MAX_NUMBER_OF = Math.floor(
+		STAGE_HORIZONTAL_UPPER_LIMIT / OBSTACLES_POSITION_OFFSET) + 1
+
+	this._gameStage = stage
+
+	this._score = new Score(this._gameStage)
+	this._bird = new Bird(this._gameStage)
+	this._bird.width = BIRD_WIDTH
+	this._bird.height = BIRD_HEIGHT
+
+	this._birdAnimator = new BirdAnimator(this._bird,
+		BIRD_VPOSITION_INCREMENT, BIRD_VPOSITION_DECREMENT,
+		BIRD_INITIAL_VERTICAL_POSITION, BIRD_FIXED_HORIZONTAL_POSITION,
+		STAGE_VERTICAL_LOWER_LIMIT, STAGE_VERTICAL_UPPER_LIMIT)
+
+	this._obstacles = new Array(OBSTACLES_MAX_NUMBER_OF)
+	this._obstacleAnimators = new Array(OBSTACLES_MAX_NUMBER_OF)
+
+	for (i = 0; i < OBSTACLES_MAX_NUMBER_OF; i++) {
+		this._obstacles[i] = new Obstacle(this._gameStage)
+		const obstacleScorePosition = BIRD_FIXED_HORIZONTAL_POSITION - OBSTACLES_WIDTH
+		this._obstacleAnimators[i] = new ObstacleAnimator(this._obstacles[i],
+			OBSTACLES_POSITION_DECREMENT,
+			OBSTACLES_INITIAL_POSITION + i*OBSTACLES_POSITION_OFFSET,
+			OBSTACLES_MAX_NUMBER_OF*OBSTACLES_POSITION_OFFSET - OBSTACLES_WIDTH,
+			OBSTACLES_OPENING_SIZE,
+			obstacleScorePosition,
+			STAGE_HORIZONTAL_LOWER_LIMIT,
+			STAGE_HORIZONTAL_UPPER_LIMIT,
+			(obstacle) => this._onObstacleAnimationStart(obstacle),
+			() => this._onPlayerPointScored())
+	}
+	this._lastObstacleRandomized = this._obstacles[0]
+	this._indexOfNextObstacleToScore = 0
 
 
-	this.onFrameUpdate = function() {
-		// Obstacles position update
-		this._obstacles.forEach((obstacle) => obstacle.position -= GAME_OBSTACLE_POSITION_DECREMENT)
-		
-		// End of obstacle course condition
-		const lastObstacle = this._obstacles[this._obstacles.length - 1]
-		const obstacleStartOfCourse = lastObstacle.position + OBSTACLES_POSITION_OFFSET
-		const obstacleEndOfCourse = STAGE_HORIZONTAL_LOWER_LIMIT - this._obstacles[0].width // 0% - width
-		if (this._obstacles[0].position <= obstacleEndOfCourse) {
-			// Each obstacle disapears on the left side of screen (end of course) and reappears on
-			// the right side of the screen (start of course) in a circular manner.
-			// The same way, its position in the array is circular. Below, I'm shifting the obstacles
-			// array and putting the obstacle in the first position back to the end position.
-			this._obstacles[0].position = obstacleStartOfCourse
-			const swapTemp = this._obstacles[0]
-			let i
-			for (i = 1; i < this._obstacles.length; i++) {
-				this._obstacles[i - 1] = this._obstacles[i]
-			}
-			this._obstacles[i - 1] = swapTemp
-
-			this._randomizeOpeningPositionForNewObstacle(this._obstacles[i - 1], this._obstacles[i - 2])
-			//obstacleScoredAlready = false
-		}
+	this.getBirdAnimator = function() {
+		return this._birdAnimator
 	}
 
 	this._setRandomOpeningPositionForObstacle = function(obstacle, minPosition, maxPosition) {
@@ -451,7 +525,7 @@ function ObstaclesAnimator(gameStage,
 		//                         (the greater the gap, the easier the game)
 		// From the image above we derive the calculus below:
 		let minOpeningPosition = (previousObstacle.openingPosition -
-			GAME_BIRD_MAX_DOWN_TRAVEL_BETWEEN_OBSTACLES - OBSTACLES_OPENING_SIZE) + GAME_BIRD_TRAVEL_GAP
+			BIRD_MAX_DOWN_TRAVEL_BETWEEN_OBSTACLES - OBSTACLES_OPENING_SIZE) + BIRD_TRAVEL_GAP
 		if (minOpeningPosition < OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT) {
 			minOpeningPosition = OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT
 		}
@@ -480,7 +554,7 @@ function ObstaclesAnimator(gameStage,
 		//                         (the greater the gap, the easier the game)
 		// From the image above we derive the calculus below:
 		let maxOpeningPosition = (previousObstacle.openingPosition + OBSTACLES_OPENING_SIZE +
-			GAME_BIRD_MAX_UP_TRAVEL_BETWEEN_OBSTACLES) - GAME_BIRD_TRAVEL_GAP
+			BIRD_MAX_UP_TRAVEL_BETWEEN_OBSTACLES) - BIRD_TRAVEL_GAP
 		if (maxOpeningPosition > OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT) {
 			maxOpeningPosition = OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT
 		}
@@ -488,74 +562,58 @@ function ObstaclesAnimator(gameStage,
 		this._setRandomOpeningPositionForObstacle(newObstacle, minOpeningPosition, maxOpeningPosition)
 	}
 
+	this._onPlayerPointScored = function() {
+		this._score.increment()
 
-	// Maximum number of obstacles visible on screen possible
-	const OBSTACLES_MAX_NUMBER_OF = Math.floor(
-		STAGE_HORIZONTAL_UPPER_LIMIT / OBSTACLES_POSITION_OFFSET) + 1
-
-	this._obstacles = Array(OBSTACLES_MAX_NUMBER_OF)
-
-	this._obstacles[0] = new Obstacle(gameStage)
-	this._obstacles[0].position = OBSTACLES_INITIAL_POSITION
-	this._obstacles[0].openingSize = OBSTACLES_OPENING_SIZE
-	this._setRandomOpeningPositionForObstacle(this._obstacles[0],
-		OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT, OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT)
-
-	for (i = 1; i < OBSTACLES_MAX_NUMBER_OF; i++) {
-		this._obstacles[i] = new Obstacle(gameStage)
-		this._obstacles[i].position = OBSTACLES_INITIAL_POSITION + i*OBSTACLES_POSITION_OFFSET
-		this._obstacles[i].openingSize = OBSTACLES_OPENING_SIZE
-		this._randomizeOpeningPositionForNewObstacle(this._obstacles[i], this._obstacles[i - 1])
-	}
-}
-
-function GameApp(stage) {
-	const gameStage = stage
-	let obstacleScoredAlready = false
-
-	const score = new Score(gameStage)
-	const bird = new Bird(gameStage)
-
-	this._birdAnimator = new BirdAnimator(bird,
-		GAME_BIRD_VPOSITION_INCREMENT, GAME_BIRD_VPOSITION_DECREMENT,
-		STAGE_VERTICAL_LOWER_LIMIT, STAGE_VERTICAL_UPPER_LIMIT)
-
-	this._obstacleAnimator = new ObstaclesAnimator(gameStage,
-		GAME_BIRD_VPOSITION_INCREMENT, GAME_BIRD_VPOSITION_DECREMENT, bird.width, bird.height)
-
-	function didPlayerScoreOnePoint(bird, obstacle, obstacleScoredAlready) {
-		if (bird.horizontalPosition > (obstacle.position + obstacle.width)) {
-			return (!obstacleScoredAlready)
-		} else {
-			return false
+		// Each obstacle disapears and reappears on the screen in a circular manner.
+		// Therefore they are also scored in a circular manner.
+		this._indexOfNextObstacleToScore++
+		if (this._indexOfNextObstacleToScore >= this._obstacles.length) {
+			this._indexOfNextObstacleToScore = 0
 		}
 	}
 
-	this.getBirdAnimator = function() {
-		return this._birdAnimator
+	this._onObstacleAnimationStart = function(obstacle) {
+		this._randomizeOpeningPositionForNewObstacle(obstacle, this._lastObstacleRandomized)
+		this._lastObstacleRandomized = obstacle
 	}
 
-	this.onFrameUpdate = function() {
-		// Bird position update
+	this._onGameStart = function() {
+		this._score.reset()
+		this._birdAnimator.onGameStart()
+
+		this._setRandomOpeningPositionForObstacle(this._lastObstacleRandomized,
+			OBSTACLES_OPENING_HEIGHT_LOWER_LIMIT, OBSTACLES_OPENING_HEIGHT_UPPER_LIMIT)
+		this._obstacleAnimators.forEach(animator => animator.onGameStart())
+	}
+
+	this._updateFrame = function() {
 		this._birdAnimator.onFrameUpdate()
+		this._obstacleAnimators.forEach((animator) => animator.onFrameUpdate())
+	}
 
-		this._obstacleAnimator.onFrameUpdate()
+	this.isGameOver = function() {
+		const birdRectangle = this._bird.rectangles[0]
+		const obstacleRectangles =
+			this._obstacles[this._indexOfNextObstacleToScore].rectangles
+		const gameIsOver = obstacleRectangles.some(
+			rectangle => birdRectangle.isOverlapping(rectangle))
+		return gameIsOver
+	}
 
-		// Score update
-		let playerScoredOnePoint = 0//didPlayerScoreOnePoint(bird, obstacles[0], obstacleScoredAlready)
-		if (playerScoredOnePoint) {
-			score.increment()
-		}
-		obstacleScoredAlready |= playerScoredOnePoint
+	this.start = function() {
+		this._onGameStart()
 
-		// Game over condition
-		// const birdRectangle = bird.rectangles[0]
-		// const obstacleRectangles = obstacles[0].rectangles
-		// let gameIsOver = obstacleRectangles.some(rectangle => birdRectangle.isOverlapping(rectangle))
-		return true//return !gameIsOver
+		const intervalId = window.setInterval(() => {
+			this._updateFrame()
+			if (this.isGameOver()) {
+				clearInterval(intervalId)
+			}
+		}, GAME_FRAME_INTERVAL)
 	}
 }
 
+const gameStage = document.querySelector('.content [wm-flappy]')
 const gameApp = new GameApp(gameStage)
 
 const birdAnimator = gameApp.getBirdAnimator()
@@ -564,8 +622,4 @@ window.onmouseup = birdAnimator.onMouseUp.bind(birdAnimator)
 window.onkeydown = birdAnimator.onKeyDown.bind(birdAnimator)
 window.onkeyup = birdAnimator.onKeyUp.bind(birdAnimator)
 
-const intervalId = window.setInterval(() => {
-	if (!gameApp.onFrameUpdate()) {
-		clearInterval(intervalId)
-	}
-}, GAME_FRAME_INTERVAL)
+gameApp.start()

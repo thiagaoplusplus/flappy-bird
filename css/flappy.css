@@ -72,7 +72,7 @@
 	position: absolute;
 	bottom: 50%; /* initial value... changed by script */
 	left: 10%; /* initial value... changed by script */
-	height: 5%;
-	width: 4%;
+	height: 5%; /* initial value... changed by script */
+	width: 4%;  /* initial value... changed by script */
 	z-index: 1;
 }
